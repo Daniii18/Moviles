@@ -1,0 +1,20 @@
+[
+  {
+    "text": "¿Cuál de estas películas ganó el Óscar a la mejor película en 1994?",
+    "answers": [
+      { "text": "Forrest Gump", "image": "forrest_gump", "isCorrect": true },
+      { "text": "Pulp Fiction", "image": "pulp_fiction", "isCorrect": false },
+      { "text": "Cadena perpetua", "image": "shawshank", "isCorrect": false },
+      { "text": "Jurassic Park", "image": "jurassic_park", "isCorrect": false }
+    ]
+  },
+  {
+    "text": "¿Quién dirigió la película 'Inception'?",
+    "answers": [
+      { "text": "Christopher Nolan", "image": "nolan", "isCorrect": true },
+      { "text": "Steven Spielberg", "image": "spielberg", "isCorrect": false },
+      { "text": "Quentin Tarantino", "image": "tarantino", "isCorrect": false },
+      { "text": "James Cameron", "image": "cameron", "isCorrect": false }
+    ]
+  }
+]
