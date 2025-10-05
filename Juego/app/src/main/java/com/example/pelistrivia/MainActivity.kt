@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.pelistrivia.ui.theme.PelisTriviaTheme
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import java.util.*
@@ -39,10 +40,11 @@ data class Question(
     val answers: List<Answer>
 )
 
-// --- PANTALLAS (estado interno de navegación) ---
+// --- NUEVO ESTADO DE NAVEGACIÓN ---
 private enum class Screen {
     MainMenu,
     Options,
+    EnterName,
     Trivia,
     Ranking
 }
@@ -94,7 +96,7 @@ fun QuestionScreen(
     question: Question,
     questionIndex: Int,
     totalQuestions: Int,
-    timeLimitSeconds: Int = 15,
+    timeLimitSeconds: Int = 10,
     onAnswerFeedback: (Boolean) -> Unit,
     onNextQuestion: () -> Unit,
     playSound: (Boolean) -> Unit
@@ -102,25 +104,26 @@ fun QuestionScreen(
     var selectedAnswer by remember { mutableStateOf<Answer?>(null) }
     var isCorrect by remember { mutableStateOf<Boolean?>(null) }
     var remaining by remember { mutableStateOf(timeLimitSeconds) }
+    var timeUp by remember { mutableStateOf(false) }
 
-    // scope para lanzar coroutines desde callbacks
     val scope = rememberCoroutineScope()
 
-    // Reiniciar contador en nueva pregunta
+    // Reinicia el temporizador cuando cambia la pregunta
     LaunchedEffect(questionIndex) {
         remaining = timeLimitSeconds
         selectedAnswer = null
         isCorrect = null
+        timeUp = false
     }
 
-    // Countdown (si no responde cuenta como fallo)
+    // Lógica del temporizador
     LaunchedEffect(remaining, selectedAnswer) {
-        if (selectedAnswer == null) {
+        if (selectedAnswer == null && !timeUp) {
             if (remaining > 0) {
                 delay(1000)
-                remaining = remaining - 1
+                remaining -= 1
             } else {
-                // tiempo agotado -> cuenta como incorrecto y avanza
+                timeUp = true
                 isCorrect = false
                 onAnswerFeedback(false)
                 playSound(false)
@@ -135,7 +138,32 @@ fun QuestionScreen(
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        // ... textos e información ...
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Pregunta ${questionIndex + 1} / $totalQuestions",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = if (!timeUp) "$remaining s" else "⏰",
+                style = MaterialTheme.typography.titleMedium.copy(
+                    color = if (remaining > 5) Color.Black else Color.Red,
+                    fontWeight = FontWeight.Bold
+                )
+            )
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Text(
+            text = question.text,
+            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
 
         question.answers.forEach { answer ->
             val correctForThisAnswer = if (selectedAnswer == null) null else answer.isCorrect
@@ -144,14 +172,11 @@ fun QuestionScreen(
                 isSelected = selectedAnswer == answer,
                 isCorrectAnswer = correctForThisAnswer
             ) {
-                if (selectedAnswer == null) {
-                    // actualizamos estado inmediatamente
+                if (selectedAnswer == null && !timeUp) {
                     selectedAnswer = answer
                     isCorrect = answer.isCorrect
                     onAnswerFeedback(answer.isCorrect)
                     playSound(answer.isCorrect)
-
-                    // lanzamos una coroutine desde el scope de Compose
                     scope.launch {
                         delay(1500)
                         onNextQuestion()
@@ -160,18 +185,30 @@ fun QuestionScreen(
             }
         }
 
-        if (isCorrect != null) {
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = if (isCorrect == true) "✅ ¡Correcto!" else "❌ Incorrecto",
-                color = if (isCorrect == true) Color(0xFF4CAF50) else Color(0xFFF44336),
+        Spacer(modifier = Modifier.height(16.dp))
+
+        when {
+            isCorrect == true -> Text(
+                text = "✅ ¡Correcto!",
+                color = Color(0xFF4CAF50),
+                fontWeight = FontWeight.Bold,
+                fontSize = 20.sp
+            )
+            isCorrect == false && !timeUp -> Text(
+                text = "❌ Incorrecto",
+                color = Color(0xFFF44336),
+                fontWeight = FontWeight.Bold,
+                fontSize = 20.sp
+            )
+            timeUp -> Text(
+                text = "⏰ Se ha acabado el tiempo",
+                color = Color(0xFFF44336),
                 fontWeight = FontWeight.Bold,
                 fontSize = 20.sp
             )
         }
     }
 }
-
 
 // --- ACTIVITY PRINCIPAL ---
 class TriviaActivity : ComponentActivity() {
@@ -187,87 +224,117 @@ class TriviaActivity : ComponentActivity() {
     }
 }
 
-// --- COMPOSABLE RAÍZ: maneja navegación entre MainMenu, Options, Trivia, Ranking ---
+// --- COMPOSABLE RAÍZ: maneja navegación ---
 @Composable
 fun AppRoot() {
     val context = LocalContext.current
     val activity = context as? Activity
     val scope = rememberCoroutineScope()
 
-    // navegación
     var screen by rememberSaveable { mutableStateOf(Screen.MainMenu) }
-
-    // volumen persistente (cargado de DataStore en LaunchedEffect)
     var appVolume by rememberSaveable { mutableStateOf(0.8f) }
+    var questions by remember { mutableStateOf<List<Question>>(emptyList()) }
+    var playerName by rememberSaveable { mutableStateOf("") }
+    var gameId by rememberSaveable { mutableStateOf(0) }
+
     LaunchedEffect(Unit) {
-        // carga el volumen guardado (SettingsDataStore.loadVolume)
-        try {
-            appVolume = loadVolume(context)
-        } catch (_: Exception) {
-            appVolume = 0.8f
-        }
+        try { appVolume = loadVolume(context) } catch (_: Exception) { appVolume = 0.8f }
     }
 
-    // preguntas cargadas desde assets/questions.json (QuestionsLoader)
-    var questions by remember { mutableStateOf<List<Question>>(emptyList()) }
     LaunchedEffect(Unit) {
-        try {
-            questions = loadQuestionsFromAssets(context)
-        } catch (_: Exception) {
-            // fallback a una lista mínima si falla
+        try { questions = loadQuestionsFromAssets(context) } catch (_: Exception) {
             questions = listOf(
-                Question(
-                    text = "Error cargando preguntas",
-                    answers = listOf(
-                        Answer("OK", android.R.drawable.ic_menu_info_details, true)
-                    )
-                )
+                Question("Error cargando preguntas", answers = listOf(Answer("OK", android.R.drawable.ic_menu_info_details, true)))
             )
         }
     }
 
-    // clave para reiniciar el estado interno del juego cuando se pulsa JUGAR
-    var gameId by rememberSaveable { mutableStateOf(0) }
-
     when (screen) {
         Screen.MainMenu -> MainMenu(
-            onPlay = {
-                gameId++ // fuerza reinicio del subtree del juego
-                screen = Screen.Trivia
-            },
+            onPlay = { screen = Screen.EnterName },
             onOptions = { screen = Screen.Options },
-            onExit = { activity?.finishAffinity() }
+            onExit = { activity?.finishAffinity() },
+            onRanking = { screen = Screen.Ranking }
         )
-
         Screen.Options -> OptionsScreen(
             volume = appVolume,
             onVolumeChange = { newV ->
                 appVolume = newV
-                // persistir
                 scope.launch { saveVolume(context, newV) }
             },
             onBack = { screen = Screen.MainMenu }
         )
-
+        Screen.EnterName -> NameEntryScreen(
+            onNameSubmitted = { name ->
+                playerName = name
+                gameId++
+                screen = Screen.Trivia
+            },
+            onBack = { screen = Screen.MainMenu }
+        )
         Screen.Trivia -> {
             key(gameId) {
                 TriviaGame(
                     questions = questions,
                     volume = appVolume,
-                    onQuitToMenu = { screen = Screen.MainMenu }
+                    playerName = playerName,
+                    onQuitToMenu = { screen = Screen.MainMenu },
+                    onLeaderboard = { screen = Screen.Ranking }
                 )
             }
         }
+        Screen.Ranking -> RankingScreen(onBack = { screen = Screen.MainMenu })
+    }
+}
 
-        Screen.Ranking -> {
-            RankingScreen(onBack = { screen = Screen.MainMenu })
+// --- OPTIONS SCREEN ---
+@Composable
+fun OptionsScreen(
+    volume: Float,
+    onVolumeChange: (Float) -> Unit,
+    onBack: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(24.dp),
+        verticalArrangement = Arrangement.Top
+    ) {
+        Text(
+            text = "Opciones",
+            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+            modifier = Modifier.padding(bottom = 24.dp)
+        )
+
+        Text(text = "Volumen: ${(volume * 100).toInt()}%", modifier = Modifier.padding(bottom = 8.dp))
+        Slider(
+            value = volume,
+            onValueChange = onVolumeChange,
+            valueRange = 0f..1f,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Button(
+            onClick = onBack,
+            modifier = Modifier.align(Alignment.CenterHorizontally)
+        ) {
+            Text("VOLVER")
         }
     }
 }
 
+
 // --- MAIN MENU ---
 @Composable
-fun MainMenu(onPlay: () -> Unit, onOptions: () -> Unit, onExit: () -> Unit) {
+fun MainMenu(
+    onPlay: () -> Unit,
+    onOptions: () -> Unit,
+    onExit: () -> Unit,
+    onRanking: () -> Unit
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -281,44 +348,82 @@ fun MainMenu(onPlay: () -> Unit, onOptions: () -> Unit, onExit: () -> Unit) {
             style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.Bold),
             modifier = Modifier.padding(bottom = 32.dp)
         )
-
         Button(onClick = onPlay, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) { Text("JUGAR") }
         Button(onClick = onOptions, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) { Text("OPCIONES") }
+        Button(onClick = onRanking, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) { Text("RANKING") }
         Button(onClick = onExit, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) { Text("SALIR") }
     }
 }
 
-// --- OPTIONS SCREEN ---
+// --- PANTALLA DE ENTRADA DE NOMBRE ---
 @Composable
-fun OptionsScreen(volume: Float, onVolumeChange: (Float) -> Unit, onBack: () -> Unit) {
+fun NameEntryScreen(onNameSubmitted: (String) -> Unit, onBack: () -> Unit) {
+    var name by rememberSaveable { mutableStateOf("") }
+    val maxChars = 10
+
     Column(
-        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(24.dp),
-        verticalArrangement = Arrangement.Top
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(24.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(text = "Opciones", style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold), modifier = Modifier.padding(bottom = 24.dp))
-        Text(text = "Volumen: ${(volume * 100).toInt()}%", modifier = Modifier.padding(bottom = 8.dp))
-        Slider(value = volume, onValueChange = onVolumeChange, valueRange = 0f..1f, modifier = Modifier.fillMaxWidth())
-        Spacer(modifier = Modifier.height(24.dp))
-        Button(onClick = onBack, modifier = Modifier.align(Alignment.CenterHorizontally)) { Text("VOLVER") }
+        Text(
+            text = "Introduce tu nombre (máx. $maxChars):",
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
+        TextField(
+            value = name,
+            onValueChange = { newValue ->
+                if (newValue.length <= maxChars) name = newValue
+            },
+            singleLine = true,
+            supportingText = { Text(text = "${name.length} / $maxChars") },
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Button(
+            onClick = { onNameSubmitted(name.trim()) },
+            enabled = name.isNotBlank(),
+            modifier = Modifier.fillMaxWidth()
+        ) { Text("COMENZAR") }
+        Spacer(modifier = Modifier.height(8.dp))
+        Button(onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text("VOLVER") }
     }
 }
 
-// --- TRIVIA GAME (usa QuestionScreen) ---
+// --- TRIVIA GAME ---
 @Composable
 fun TriviaGame(
     questions: List<Question>,
     volume: Float,
-    onQuitToMenu: () -> Unit
+    playerName: String,
+    onQuitToMenu: () -> Unit,
+    onLeaderboard: () -> Unit
 ) {
     val context = LocalContext.current
-    val db = remember { AppDatabase.getInstance(context) } // Room DB
+    val db = remember { AppDatabase.getInstance(context) }
     val scope = rememberCoroutineScope()
-
     var currentIndex by rememberSaveable { mutableStateOf(0) }
     var correctAnswers by rememberSaveable { mutableStateOf(0) }
     var showFinalMessage by rememberSaveable { mutableStateOf(false) }
+    // Guarda automáticamente el resultado al terminar la partida
+    LaunchedEffect(showFinalMessage) {
+        if (showFinalMessage && correctAnswers > 0) {
+            scope.launch(Dispatchers.IO) {
+                db.scoreDao().insert(
+                    ScoreEntity(
+                        playerName = playerName,
+                        score = correctAnswers,
+                        dateMillis = Date().time
+                    )
+                )
+            }
+        }
+    }
 
-    // Reproduce sonido corto (correct/wrong) aplicando 'volume'
     fun playSound(correct: Boolean) {
         try {
             val resId = if (correct) context.resources.getIdentifier("correct", "raw", context.packageName)
@@ -329,36 +434,70 @@ fun TriviaGame(
                 mp.start()
                 mp.setOnCompletionListener { m -> m.release() }
             }
-        } catch (_: Exception) { /* ignore */ }
+        } catch (_: Exception) { }
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        Row(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Button(onClick = onQuitToMenu) { Text("Menú") }
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Button(onClick = onQuitToMenu) { Text("Salir") }
             Spacer(modifier = Modifier.width(12.dp))
-            Text(text = "Volumen: ${(volume * 100).toInt()}%", modifier = Modifier.weight(1f))
+            Text(
+                text = "Jugador: $playerName",
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.weight(1f)
+            )
+            Text(text = "Volumen: ${(volume * 100).toInt()}%")
         }
 
         if (questions.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Cargando preguntas...", style = MaterialTheme.typography.titleMedium)
+                Text("Cargando preguntas…", style = MaterialTheme.typography.titleMedium)
             }
         } else if (showFinalMessage) {
-            Box(modifier = Modifier.fillMaxSize().background(Color(0xFF1B5E20)), contentAlignment = Alignment.Center) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xFF1B5E20)),
+                contentAlignment = Alignment.Center
+            ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(text = "🎉 ¡Has terminado el trivia!", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = "🎉 ¡Has terminado el trivia, $playerName!",
+                        color = Color.White,
+                        fontSize = 26.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                     Spacer(modifier = Modifier.height(12.dp))
-                    Text(text = "Aciertos: $correctAnswers/${questions.size}", color = Color.White, fontSize = 20.sp)
+                    Text(
+                        text = "Aciertos: $correctAnswers/${questions.size}",
+                        color = Color.White,
+                        fontSize = 20.sp
+                    )
                     Spacer(modifier = Modifier.height(20.dp))
+
+                    // 🔹 Aquí guardamos la puntuación correcta ANTES de reiniciar
                     Button(onClick = {
-                        // guardar puntuación en DB (por defecto "Player")
+                        val finalScore = correctAnswers  // 👈 cambio importante aquí
                         scope.launch {
-                            db.scoreDao().insert(ScoreEntity(playerName = "Player", score = correctAnswers, dateMillis = Date().time))
+                            db.scoreDao().insert(
+                                ScoreEntity(
+                                    playerName = playerName,
+                                    score = finalScore,   // se guarda el valor antes del reset
+                                    dateMillis = Date().time
+                                )
+                            )
                         }
+                        // ahora sí, reiniciamos los valores del juego
                         currentIndex = 0
                         correctAnswers = 0
                         showFinalMessage = false
                     }) { Text("JUGAR DE NUEVO") }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Button(onClick = onLeaderboard) { Text("VER RANKING") }
                     Spacer(modifier = Modifier.height(12.dp))
                     Button(onClick = onQuitToMenu) { Text("VOLVER AL MENÚ") }
                 }
@@ -369,15 +508,9 @@ fun TriviaGame(
                     question = questions[currentIndex],
                     questionIndex = currentIndex,
                     totalQuestions = questions.size,
-                    onAnswerFeedback = { correct ->
-                        if (correct) correctAnswers++
-                    },
+                    onAnswerFeedback = { correct -> if (correct) correctAnswers++ },
                     onNextQuestion = {
-                        if (currentIndex < questions.lastIndex) {
-                            currentIndex++
-                        } else {
-                            showFinalMessage = true
-                        }
+                        if (currentIndex < questions.lastIndex) currentIndex++ else showFinalMessage = true
                     },
                     playSound = { correct -> playSound(correct) }
                 )
@@ -385,6 +518,7 @@ fun TriviaGame(
         }
     }
 }
+
 
 // --- RANKING SCREEN ---
 @Composable
@@ -394,22 +528,60 @@ fun RankingScreen(onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     var scores by remember { mutableStateOf<List<ScoreEntity>>(emptyList()) }
 
+    // 🔹 Cargar las puntuaciones al iniciar la pantalla
     LaunchedEffect(Unit) {
-        val list = db.scoreDao().topScores(10)
-        scores = list
+        scope.launch {
+            val list = db.scoreDao().topScores(10)
+            scores = list
+        }
     }
 
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        Text(text = "Ranking (Top 10)", style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold))
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        Text(
+            text = "Ranking (Top 10)",
+            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold)
+        )
+
         Spacer(modifier = Modifier.height(12.dp))
+
         if (scores.isEmpty()) {
             Text("No hay puntuaciones aún.")
         } else {
             scores.forEachIndexed { idx, s ->
-                Text("${idx + 1}. ${s.playerName} — ${s.score}", style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    text = "${idx + 1}. ${s.playerName} — ${s.score}",
+                    style = MaterialTheme.typography.bodyLarge
+                )
             }
         }
+
         Spacer(modifier = Modifier.height(24.dp))
-        Button(onClick = onBack) { Text("VOLVER") }
+
+        Button(onClick = onBack) {
+            Text("VOLVER")
+        }
+
+        // 🔹 Botón opcional de prueba para insertar datos manualmente
+        Spacer(modifier = Modifier.height(16.dp))
+        Button(onClick = {
+            scope.launch {
+                db.scoreDao().insert(
+                    ScoreEntity(
+                        playerName = "Jugador_${(0..99).random()}",
+                        score = (0..10).random(),
+                        dateMillis = System.currentTimeMillis()
+                    )
+                )
+                scores = db.scoreDao().topScores(10)
+            }
+        }) {
+            Text("Añadir puntuación de prueba")
+        }
     }
 }
+
+
