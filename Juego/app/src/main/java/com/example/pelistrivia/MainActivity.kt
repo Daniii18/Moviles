@@ -564,23 +564,6 @@ fun RankingScreen(onBack: () -> Unit) {
         Button(onClick = onBack) {
             Text("VOLVER")
         }
-
-        // 🔹 Botón opcional de prueba para insertar datos manualmente
-        Spacer(modifier = Modifier.height(16.dp))
-        Button(onClick = {
-            scope.launch {
-                db.scoreDao().insert(
-                    ScoreEntity(
-                        playerName = "Jugador_${(0..99).random()}",
-                        score = (0..10).random(),
-                        dateMillis = System.currentTimeMillis()
-                    )
-                )
-                scores = db.scoreDao().topScores(10)
-            }
-        }) {
-            Text("Añadir puntuación de prueba")
-        }
     }
 }
 
