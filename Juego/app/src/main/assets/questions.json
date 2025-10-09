@@ -6,7 +6,8 @@
       { "text": "Pulp Fiction", "image": "pulp_fiction", "isCorrect": false },
       { "text": "Cadena perpetua", "image": "shawshank", "isCorrect": false },
       { "text": "Jurassic Park", "image": "jurassic_park", "isCorrect": false }
-    ]
+    ],
+    "explanation": "¡Exacto! Forrest Gump ganó 6 Oscars, incluyendo Mejor Película, Mejor Director (Robert Zemeckis) y Mejor Actor para Tom Hanks."
   },
   {
     "text": "¿Quién dirigió la película 'Inception'?",
@@ -15,6 +16,187 @@
       { "text": "Steven Spielberg", "image": "spielberg", "isCorrect": false },
       { "text": "Quentin Tarantino", "image": "tarantino", "isCorrect": false },
       { "text": "James Cameron", "image": "cameron", "isCorrect": false }
-    ]
+    ],
+    "explanation": "¡Correcto! Nolan pasó años desarrollando la idea de sueños dentro de sueños, creando un thriller que desafía la percepción del tiempo."
+  },
+  {
+    "text": "¿Qué animal es protagonista en Buscando a Nemo (2003)?",
+    "answers": [
+      { "text": "Tiburón", "image": "tiburon", "isCorrect": false },
+      { "text": "Pez payaso", "image": "pez_payaso", "isCorrect": true },
+      { "text": "Tortuga", "image": "tortuga", "isCorrect": false },
+      { "text": "Delfín", "image": "delfin", "isCorrect": false }
+    ],
+    "explanation": "¡Correcto! Nemo es un pez payaso que se pierde en el océano; su padre Marlin, junto con Dory, emprende una gran aventura para rescatarlo."
+  },
+  {
+    "text": "¿Qué película muestra el romance de Jack y Rose a bordo de un famoso transatlántico que se hundió en 1912?",
+    "answers": [
+      { "text": "Náufrago", "image": "naufrago", "isCorrect": false },
+      { "text": "Titanic", "image": "titanic", "isCorrect": true },
+      { "text": "Pearl Harbor", "image": "pearl_harbor", "isCorrect": false },
+      { "text": "La Tormenta Perfecta", "image": "tormenta_perfecta", "isCorrect": false }
+    ],
+    "explanation": "¡Bien hecho! Jack y Rose viven un romance imposible a bordo del Titanic, que se hundió en el Atlántico en 1912."
+  },
+  {
+    "text": "¿Qué personaje de ficción es conocido por la frase “mi tesoro”?",
+    "answers": [
+      { "text": "Dobby", "image": "dobby", "isCorrect": false },
+      { "text": "Gandalf", "image": "gandalf", "isCorrect": false },
+      { "text": "Frodo", "image": "frodo", "isCorrect": false },
+      { "text": "Gollum", "image": "gollum", "isCorrect": true }
+    ],
+    "explanation": "¡Exacto! Gollum pronuncia su icónica frase ‘mi tesoro’ en El Señor de los Anillos: La Comunidad del Anillo (2001)."
+  },
+  {
+    "text": "¿Quién interpreta a Jack Sparrow en Piratas del Caribe?",
+    "answers": [
+      { "text": "Leonardo DiCaprio", "image": "leonardo_dicaprio", "isCorrect": false },
+      { "text": "Johnny Depp", "image": "johnny_depp", "isCorrect": true },
+      { "text": "Orlando Bloom", "image": "orlando_bloom", "isCorrect": false },
+      { "text": "Hugh Jackman", "image": "hugh_jackman", "isCorrect": false }
+    ],
+    "explanation": "¡Correcto! Johnny Depp creó la inolvidable personalidad del capitán Jack Sparrow."
+  },
+  {
+    "text": "¿Qué superhéroe protege la ciudad de Gotham?",
+    "answers": [
+      { "text": "Iron Man", "image": "iron_man", "isCorrect": false },
+      { "text": "Spider-Man", "image": "spider_man", "isCorrect": false },
+      { "text": "Batman", "image": "batman", "isCorrect": true },
+      { "text": "Superman", "image": "superman", "isCorrect": false }
+    ],
+    "explanation": "¡Exacto! Batman protege Gotham de criminales como el Joker, usando su ingenio, habilidades de combate y tecnología."
+  },
+  {
+    "text": "¿Qué personaje de ficción popularizó la frase “Hasta la vista, baby”?",
+    "answers": [
+      { "text": "Rambo", "image": "rambo", "isCorrect": false },
+      { "text": "Depredador", "image": "depredador", "isCorrect": false },
+      { "text": "Terminator", "image": "terminator", "isCorrect": true },
+      { "text": "Robocop", "image": "robocop", "isCorrect": false }
+    ],
+    "explanation": "¡Bien hecho! La frase fue popularizada por el T-800 en Terminator 2: El Juicio Final, interpretado por Arnold Schwarzenegger."
+  },
+  {
+    "text": "¿Quién compuso la icónica banda sonora de Star Wars?",
+    "answers": [
+      { "text": "Hans Zimmer", "image": "hans_zimmer", "isCorrect": false },
+      { "text": "John Williams", "image": "john_williams", "isCorrect": true },
+      { "text": "Danny Elfman", "image": "danny_elfman", "isCorrect": false },
+      { "text": "Ennio Morricone", "image": "ennio_morricone", "isCorrect": false }
+    ],
+    "explanation": "¡Exacto! John Williams creó la épica banda sonora de la saga Star Wars, muy reconocible y premiada."
+  },
+  {
+    "text": "¿Qué actor interpretó a James Bond en Skyfall?",
+    "answers": [
+      { "text": "Pierce Brosnan", "image": "pierce_brosnan", "isCorrect": false },
+      { "text": "Sean Connery", "image": "sean_connery", "isCorrect": false },
+      { "text": "Daniel Craig", "image": "daniel_craig", "isCorrect": true },
+      { "text": "Roger Moore", "image": "roger_moore", "isCorrect": false }
+    ],
+    "explanation": "¡Correcto! Daniel Craig interpretó a James Bond en Skyfall."
+  },
+  {
+    "text": "¿Cuál fue el primer largometraje animado de Disney?",
+    "answers": [
+      { "text": "Blancanieves y los siete enanitos", "image": "blancanieves", "isCorrect": true },
+      { "text": "Fantasía", "image": "fantasia", "isCorrect": false },
+      { "text": "Pinocho", "image": "pinocho", "isCorrect": false },
+      { "text": "Dumbo", "image": "dumbo", "isCorrect": false }
+    ],
+    "explanation": "¡Bien hecho! En 1937 Blancanieves y los siete enanitos fue el primer largometraje animado de Disney."
+  },
+  {
+    "text": "¿Qué película fue anunciada incorrectamente como ganadora de Mejor Película en los Premios de la Academia de 2017?",
+    "answers": [
+      { "text": "Moonlight", "image": "moonlight", "isCorrect": false },
+      { "text": "La La Land", "image": "la_la_land", "isCorrect": true },
+      { "text": "Arrival", "image": "arrival", "isCorrect": false },
+      { "text": "Manchester by the Sea", "image": "manchester_by_the_sea", "isCorrect": false }
+    ],
+    "explanation": "¡Correcto! En los Oscars 2017 se anunció por error a La La Land como ganadora cuando el verdadero ganador era Moonlight."
+  },
+  {
+    "text": "¿Qué película de 1942 contiene la frase “Siempre nos quedará París”?",
+    "answers": [
+      { "text": "Casablanca", "image": "casablanca", "isCorrect": true },
+      { "text": "Lo que el viento se llevó", "image": "lo_que_el_viento_se_llevo", "isCorrect": false },
+      { "text": "Rebeca", "image": "rebeca", "isCorrect": false },
+      { "text": "Ciudadano Kane", "image": "ciudadano_kane", "isCorrect": false }
+    ],
+    "explanation": "¡Correcto! En Casablanca (1942), Rick dice ‘Siempre nos quedará París’ recordando su romance con Ilsa."
+  },
+  {
+    "text": "En Harry Potter y la Piedra Filosofal (2001), ¿qué criatura custodia la piedra?",
+    "answers": [
+      { "text": "Un dragón", "image": "dragon", "isCorrect": false },
+      { "text": "Un perro de tres cabezas", "image": "fluffy", "isCorrect": true },
+      { "text": "Una esfinge", "image": "esfinge", "isCorrect": false },
+      { "text": "Un basilisco", "image": "basilisco", "isCorrect": false }
+    ],
+    "explanation": "¡Correcto! La piedra filosofal está custodiada por Fluffy, un perro de tres cabezas inspirado en Cerbero."
+  },
+  {
+    "text": "En Gladiator (2000), ¿qué tipo de planta coloca Máximo sobre el suelo cada vez que recuerda a su familia?",
+    "answers": [
+      { "text": "Trigo", "image": "trigo", "isCorrect": true },
+      { "text": "Laurel", "image": "laurel", "isCorrect": false },
+      { "text": "Olivo", "image": "olivo", "isCorrect": false },
+      { "text": "Cebada", "image": "cebada", "isCorrect": false }
+    ],
+    "explanation": "¡Correcto! Máximo coloca espigas de trigo como símbolo de su vida pasada en el campo."
+  },
+  {
+    "text": "En “Pulp Fiction” (1994), ¿qué canción casi se quedó fuera de la banda sonora?",
+    "answers": [
+      { "text": "Misirlou", "image": "misirlou", "isCorrect": true },
+      { "text": "Girl, You’ll Be a Woman Soon", "image": "girl_youll_be_a_woman_soon", "isCorrect": false },
+      { "text": "Jungle Boogie", "image": "jungle_boogie", "isCorrect": false },
+      { "text": "Son of a Preacher Man", "image": "son_of_a_preacher_man", "isCorrect": false }
+    ],
+    "explanation": "¡Correcto! ‘Misirlou’ de Dick Dale estuvo en duda, pero Tarantino insistió y terminó abriendo la película."
+  },
+  {
+    "text": "En Regreso al Futuro (1985), ¿cuál es la velocidad que debe alcanzar el DeLorean para activar el viaje en el tiempo?",
+    "answers": [
+      { "text": "99 mph", "image": "99_mph", "isCorrect": false },
+      { "text": "100 mph", "image": "100_mph", "isCorrect": false },
+      { "text": "77 mph", "image": "77_mph", "isCorrect": false },
+      { "text": "88 mph", "image": "88_mph", "isCorrect": true }
+    ],
+    "explanation": "¡Correcto! El DeLorean debe alcanzar 88 mph para viajar en el tiempo."
+  },
+  {
+    "text": "En Avatar (2009), ¿cómo se llama el mineral que los humanos quieren extraer?",
+    "answers": [
+      { "text": "Pandorium", "image": "pandorium", "isCorrect": false },
+      { "text": "Vibranio", "image": "vibranio", "isCorrect": false },
+      { "text": "Na’vi Cristal", "image": "navi_cristal", "isCorrect": false },
+      { "text": "Unobtainium", "image": "unobtainium", "isCorrect": true }
+    ],
+    "explanation": "¡Correcto! En la película se llama Unobtainium, un término que refleja su valor extremo y rareza."
+  },
+  {
+    "text": "¿Quién es el ganador del Oscar más longevo hasta 2025?",
+    "answers": [
+      { "text": "Christopher Plummer", "image": "christopher_plummer", "isCorrect": false },
+      { "text": "Anthony Hopkins", "image": "anthony_hopkins", "isCorrect": true },
+      { "text": "Clint Eastwood", "image": "clint_eastwood", "isCorrect": false },
+      { "text": "Martin Scorsese", "image": "martin_scorsese", "isCorrect": false }
+    ],
+    "explanation": "¡Correcto! Anthony Hopkins ganó el Oscar al Mejor Actor a los 83 años por El padre (2020), siendo el ganador más longevo hasta 2025."
+  },
+  {
+    "text": "En El Padrino (1972), ¿qué fruta aparece repetidamente como símbolo de muerte o peligro?",
+    "answers": [
+      { "text": "Naranjas", "image": "naranjas", "isCorrect": true },
+      { "text": "Uvas", "image": "uvas", "isCorrect": false },
+      { "text": "Limones", "image": "limones", "isCorrect": false },
+      { "text": "Manzanas", "image": "manzanas", "isCorrect": false }
+    ],
+    "explanation": "¡Correcto! Las naranjas aparecen en varias escenas como un presagio simbólico de muerte o cambio importante."
   }
 ]

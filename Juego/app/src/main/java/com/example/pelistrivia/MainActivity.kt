@@ -37,7 +37,8 @@ data class Answer(
 
 data class Question(
     val text: String,
-    val answers: List<Answer>
+    val answers: List<Answer>,
+    val explanation: String? = null
 )
 
 // --- NUEVO ESTADO DE NAVEGACIÓN ---
@@ -116,8 +117,8 @@ fun QuestionScreen(
         timeUp = false
     }
 
-    // Lógica del temporizador
-    LaunchedEffect(remaining, selectedAnswer) {
+    // Lógica del temporizador (corre solo si no se ha respondido)
+    LaunchedEffect(remaining, selectedAnswer, timeUp) {
         if (selectedAnswer == null && !timeUp) {
             if (remaining > 0) {
                 delay(1000)
@@ -127,7 +128,7 @@ fun QuestionScreen(
                 isCorrect = false
                 onAnswerFeedback(false)
                 playSound(false)
-                delay(1500)
+                delay(1500) // pequeña pausa antes de la siguiente pregunta
                 onNextQuestion()
             }
         }
@@ -165,6 +166,7 @@ fun QuestionScreen(
             modifier = Modifier.padding(bottom = 16.dp)
         )
 
+        // Renderiza las respuestas
         question.answers.forEach { answer ->
             val correctForThisAnswer = if (selectedAnswer == null) null else answer.isCorrect
             AnswerItem(
@@ -173,12 +175,21 @@ fun QuestionScreen(
                 isCorrectAnswer = correctForThisAnswer
             ) {
                 if (selectedAnswer == null && !timeUp) {
+                    // registrar selección
                     selectedAnswer = answer
                     isCorrect = answer.isCorrect
                     onAnswerFeedback(answer.isCorrect)
                     playSound(answer.isCorrect)
+
+                    // gestionar pausa antes de próxima pregunta:
                     scope.launch {
-                        delay(1500)
+                        if (answer.isCorrect) {
+                            // Mostrar explicación 5 segundos: la UI la muestra automáticamente cuando isCorrect == true
+                            delay(5000)
+                        } else {
+                            // Si fallas, mostrar "Incorrecto" 1.5s y seguir
+                            delay(1500)
+                        }
                         onNextQuestion()
                     }
                 }
@@ -187,13 +198,34 @@ fun QuestionScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        // Mensajes de feedback y explicación (solo si aciertas)
         when {
-            isCorrect == true -> Text(
-                text = "✅ ¡Correcto!",
-                color = Color(0xFF4CAF50),
-                fontWeight = FontWeight.Bold,
-                fontSize = 20.sp
-            )
+            isCorrect == true -> {
+                Column {
+                    Text(
+                        text = "✅ ¡Correcto!",
+                        color = Color(0xFF4CAF50),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    // Mostrar explanation SOLO si existe
+                    if (!question.explanation.isNullOrBlank()) {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 8.dp),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                        ) {
+                            Text(
+                                text = question.explanation ?: "",
+                                modifier = Modifier.padding(12.dp),
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    }
+                }
+            }
             isCorrect == false && !timeUp -> Text(
                 text = "❌ Incorrecto",
                 color = Color(0xFFF44336),
@@ -209,6 +241,7 @@ fun QuestionScreen(
         }
     }
 }
+
 
 // --- ACTIVITY PRINCIPAL ---
 class TriviaActivity : ComponentActivity() {
