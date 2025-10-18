@@ -118,19 +118,22 @@ fun QuestionScreen(
     }
 
     // Lógica del temporizador (corre solo si no se ha respondido)
-    LaunchedEffect(remaining, selectedAnswer, timeUp) {
-        if (selectedAnswer == null && !timeUp) {
-            if (remaining > 0) {
-                delay(1000)
-                remaining -= 1
-            } else {
-                timeUp = true
-                isCorrect = false
-                onAnswerFeedback(false)
-                playSound(false)
-                delay(1500) // pequeña pausa antes de la siguiente pregunta
-                onNextQuestion()
-            }
+    LaunchedEffect(key1 = questionIndex) {
+        remaining = 10 // reiniciar el contador
+        timeUp = false
+
+        while (remaining > 0 && selectedAnswer == null && !timeUp) {
+            delay(1000)
+            remaining -= 1
+        }
+
+        if (!timeUp && selectedAnswer == null) {
+            timeUp = true
+            isCorrect = false
+            onAnswerFeedback(false)
+            playSound(false)
+            delay(1500)
+            onNextQuestion()
         }
     }
 
@@ -372,12 +375,13 @@ fun MainMenu(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
+            .statusBarsPadding()
             .padding(24.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "PELIS TRIVIA",
+            text = "MOVIZ",
             style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.Bold),
             modifier = Modifier.padding(bottom = 32.dp)
         )
@@ -392,12 +396,13 @@ fun MainMenu(
 @Composable
 fun NameEntryScreen(onNameSubmitted: (String) -> Unit, onBack: () -> Unit) {
     var name by rememberSaveable { mutableStateOf("") }
-    val maxChars = 10
+    val maxChars = 5
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
+            .statusBarsPadding()
             .padding(24.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
@@ -470,7 +475,9 @@ fun TriviaGame(
         } catch (_: Exception) { }
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
+    Column(modifier = Modifier
+        .fillMaxSize()
+        .statusBarsPadding()) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -498,7 +505,7 @@ fun TriviaGame(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = "🎉 ¡Has terminado el trivia, $playerName!",
+                        text = "¡Has terminado el trivia, $playerName!",
                         color = Color.White,
                         fontSize = 26.sp,
                         fontWeight = FontWeight.Bold
@@ -513,7 +520,7 @@ fun TriviaGame(
 
                     // 🔹 Aquí guardamos la puntuación correcta ANTES de reiniciar
                     Button(onClick = {
-                        val finalScore = correctAnswers  // 👈 cambio importante aquí
+                        val finalScore = correctAnswers
                         scope.launch {
                             db.scoreDao().insert(
                                 ScoreEntity(
@@ -561,7 +568,6 @@ fun RankingScreen(onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     var scores by remember { mutableStateOf<List<ScoreEntity>>(emptyList()) }
 
-    // 🔹 Cargar las puntuaciones al iniciar la pantalla
     LaunchedEffect(Unit) {
         scope.launch {
             val list = db.scoreDao().topScores(10)
@@ -572,6 +578,7 @@ fun RankingScreen(onBack: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .statusBarsPadding()
             .padding(16.dp)
     ) {
         Text(
