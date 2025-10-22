@@ -6,6 +6,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.annotation.DrawableRes
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -16,10 +17,13 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.pelistrivia.ui.theme.PelisTriviaTheme
@@ -43,6 +47,7 @@ data class Question(
 
 // --- NUEVO ESTADO DE NAVEGACIÓN ---
 private enum class Screen {
+    Splash, // Nueva pantalla de inicio
     MainMenu,
     Options,
     EnterName,
@@ -91,7 +96,7 @@ fun AnswerItem(
     }
 }
 
-// --- PANTALLA DE PREGUNTA ---
+// --- PANTALLA DE PREGUNTA MODIFICADA ---
 @Composable
 fun QuestionScreen(
     question: Question,
@@ -106,20 +111,20 @@ fun QuestionScreen(
     var isCorrect by remember { mutableStateOf<Boolean?>(null) }
     var remaining by remember { mutableStateOf(timeLimitSeconds) }
     var timeUp by remember { mutableStateOf(false) }
+    var showContinueButton by remember { mutableStateOf(false) }
 
     val scope = rememberCoroutineScope()
 
-    // Reinicia el temporizador cuando cambia la pregunta
     LaunchedEffect(questionIndex) {
         remaining = timeLimitSeconds
         selectedAnswer = null
         isCorrect = null
         timeUp = false
+        showContinueButton = false
     }
 
-    // Lógica del temporizador (corre solo si no se ha respondido)
     LaunchedEffect(key1 = questionIndex) {
-        remaining = 10 // reiniciar el contador
+        remaining = 10
         timeUp = false
 
         while (remaining > 0 && selectedAnswer == null && !timeUp) {
@@ -142,6 +147,7 @@ fun QuestionScreen(
             .fillMaxSize()
             .padding(16.dp)
     ) {
+        // Texto en blanco para que contraste con el fondo
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -149,13 +155,13 @@ fun QuestionScreen(
         ) {
             Text(
                 text = "Pregunta ${questionIndex + 1} / $totalQuestions",
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleMedium.copy(color = Color.White),
                 fontWeight = FontWeight.Bold
             )
             Text(
                 text = if (!timeUp) "$remaining s" else "⏰",
                 style = MaterialTheme.typography.titleMedium.copy(
-                    color = if (remaining > 5) Color.Black else Color.Red,
+                    color = if (remaining > 5) Color.White else Color(0xFFFF6B6B),
                     fontWeight = FontWeight.Bold
                 )
             )
@@ -165,11 +171,14 @@ fun QuestionScreen(
 
         Text(
             text = question.text,
-            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+            style = MaterialTheme.typography.headlineSmall.copy(
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            ),
             modifier = Modifier.padding(bottom = 16.dp)
         )
 
-        // Renderiza las respuestas
+        // Renderiza las respuestas (se mantienen igual)
         question.answers.forEach { answer ->
             val correctForThisAnswer = if (selectedAnswer == null) null else answer.isCorrect
             AnswerItem(
@@ -178,22 +187,18 @@ fun QuestionScreen(
                 isCorrectAnswer = correctForThisAnswer
             ) {
                 if (selectedAnswer == null && !timeUp) {
-                    // registrar selección
                     selectedAnswer = answer
                     isCorrect = answer.isCorrect
                     onAnswerFeedback(answer.isCorrect)
                     playSound(answer.isCorrect)
 
-                    // gestionar pausa antes de próxima pregunta:
                     scope.launch {
                         if (answer.isCorrect) {
-                            // Mostrar explicación 5 segundos: la UI la muestra automáticamente cuando isCorrect == true
-                            delay(5000)
+                            showContinueButton = true
                         } else {
-                            // Si fallas, mostrar "Incorrecto" 1.5s y seguir
                             delay(1500)
+                            onNextQuestion()
                         }
-                        onNextQuestion()
                     }
                 }
             }
@@ -201,24 +206,42 @@ fun QuestionScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Mensajes de feedback y explicación (solo si aciertas)
+        // Mensajes de feedback en blanco
         when {
             isCorrect == true -> {
                 Column {
-                    Text(
-                        text = "✅ ¡Correcto!",
-                        color = Color(0xFF4CAF50),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 20.sp
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "✅ ¡Correcto!",
+                            color = Color(0xFF4CAF50),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 20.sp
+                        )
+
+                        if (showContinueButton) {
+                            Image(
+                                painter = painterResource(id = R.drawable.sprite_button_continue),
+                                contentDescription = "Continuar",
+                                modifier = Modifier
+                                    .size(120.dp, 48.dp)
+                                    .clickable { onNextQuestion() }
+                            )
+                        }
+                    }
+
                     Spacer(modifier = Modifier.height(8.dp))
-                    // Mostrar explanation SOLO si existe
+
                     if (!question.explanation.isNullOrBlank()) {
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(top = 8.dp),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.Black)
                         ) {
                             Text(
                                 text = question.explanation ?: "",
@@ -245,6 +268,53 @@ fun QuestionScreen(
     }
 }
 
+// --- NUEVA PANTALLA SPLASH ---
+@Composable
+fun SplashScreen(onContinue: () -> Unit) {
+    var alpha by remember { mutableStateOf(1f) }
+
+    // Animación de parpadeo
+    LaunchedEffect(Unit) {
+        while (true) {
+            alpha = 0.3f
+            delay(800)
+            alpha = 1f
+            delay(800)
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+            .clickable { onContinue() },
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Aquí va la imagen de portada del juego
+            // Image(painter = painterResource(R.drawable.game_cover), contentDescription = "Portada")
+
+            Text(
+                text = "MOVIZ",
+                style = MaterialTheme.typography.displayLarge.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                ),
+                modifier = Modifier.padding(bottom = 32.dp)
+            )
+
+            Text(
+                text = "Pulsa la pantalla para continuar",
+                style = MaterialTheme.typography.titleMedium.copy(
+                    color = Color.White
+                ),
+                modifier = Modifier.alpha(alpha)
+            )
+        }
+    }
+}
 
 // --- ACTIVITY PRINCIPAL ---
 class TriviaActivity : ComponentActivity() {
@@ -267,7 +337,7 @@ fun AppRoot() {
     val activity = context as? Activity
     val scope = rememberCoroutineScope()
 
-    var screen by rememberSaveable { mutableStateOf(Screen.MainMenu) }
+    var screen by rememberSaveable { mutableStateOf(Screen.Splash) } // Comienza con Splash
     var appVolume by rememberSaveable { mutableStateOf(0.8f) }
     var questions by remember { mutableStateOf<List<Question>>(emptyList()) }
     var playerName by rememberSaveable { mutableStateOf("") }
@@ -286,6 +356,9 @@ fun AppRoot() {
     }
 
     when (screen) {
+        Screen.Splash -> SplashScreen(
+            onContinue = { screen = Screen.MainMenu }
+        )
         Screen.MainMenu -> MainMenu(
             onPlay = { screen = Screen.EnterName },
             onOptions = { screen = Screen.Options },
@@ -323,47 +396,78 @@ fun AppRoot() {
     }
 }
 
-// --- OPTIONS SCREEN ---
+// --- OPTIONS SCREEN MODIFICADA CON SPRITES ---
 @Composable
 fun OptionsScreen(
     volume: Float,
     onVolumeChange: (Float) -> Unit,
     onBack: () -> Unit
 ) {
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(24.dp),
-        verticalArrangement = Arrangement.Top
+            .statusBarsPadding()
     ) {
-        Text(
-            text = "Opciones",
-            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-            modifier = Modifier.padding(bottom = 24.dp)
+        // Imagen de fondo
+        Image(
+            painter = painterResource(id = R.drawable.sprite_background),
+            contentDescription = "Fondo de opciones",
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
         )
 
-        Text(text = "Volumen: ${(volume * 100).toInt()}%", modifier = Modifier.padding(bottom = 8.dp))
-        Slider(
-            value = volume,
-            onValueChange = onVolumeChange,
-            valueRange = 0f..1f,
-            modifier = Modifier.fillMaxWidth()
+        // Overlay oscuro para mejor legibilidad
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.4f))
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Button(
-            onClick = onBack,
-            modifier = Modifier.align(Alignment.CenterHorizontally)
+        // Contenido de opciones
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            verticalArrangement = Arrangement.Top
         ) {
-            Text("VOLVER")
+            Text(
+                text = "Opciones",
+                style = MaterialTheme.typography.headlineSmall.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                ),
+                modifier = Modifier.padding(bottom = 24.dp)
+            )
+
+            Text(
+                text = "Volumen: ${(volume * 100).toInt()}%",
+                style = MaterialTheme.typography.bodyLarge.copy(color = Color.White),
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+
+            Slider(
+                value = volume,
+                onValueChange = onVolumeChange,
+                valueRange = 0f..1f,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Botón de volver con sprite
+            Image(
+                painter = painterResource(id = R.drawable.sprite_button_back),
+                contentDescription = "Volver",
+                modifier = Modifier
+                    .size(120.dp, 48.dp)
+                    .align(Alignment.CenterHorizontally)
+                    .clickable { onBack() }
+            )
         }
     }
 }
 
-
-// --- MAIN MENU ---
+// --- MAIN MENU MODIFICADO CON SPRITES Y FONDO ---
 @Composable
 fun MainMenu(
     onPlay: () -> Unit,
@@ -371,68 +475,177 @@ fun MainMenu(
     onExit: () -> Unit,
     onRanking: () -> Unit
 ) {
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding()
-            .padding(24.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(
-            text = "MOVIZ",
-            style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.Bold),
-            modifier = Modifier.padding(bottom = 32.dp)
+        // Imagen de fondo
+        Image(
+            painter = painterResource(id = R.drawable.sprite_background),
+            contentDescription = "Fondo del menú principal",
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
         )
-        Button(onClick = onPlay, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) { Text("JUGAR") }
-        Button(onClick = onOptions, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) { Text("OPCIONES") }
-        Button(onClick = onRanking, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) { Text("RANKING") }
-        Button(onClick = onExit, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) { Text("SALIR") }
+
+        // Overlay oscuro para mejor legibilidad
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.4f))
+        )
+
+        // Contenido del menú
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "MOVIZ",
+                style = MaterialTheme.typography.displaySmall.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                ),
+                modifier = Modifier.padding(bottom = 32.dp)
+            )
+
+            // Botones con sprites
+            Image(
+                painter = painterResource(id = R.drawable.sprite_button_play),
+                contentDescription = "Jugar",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(60.dp)
+                    .padding(vertical = 8.dp)
+                    .clickable { onPlay() }
+            )
+
+            Image(
+                painter = painterResource(id = R.drawable.sprite_button_options),
+                contentDescription = "Opciones",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(60.dp)
+                    .padding(vertical = 8.dp)
+                    .clickable { onOptions() }
+            )
+
+            Image(
+                painter = painterResource(id = R.drawable.sprite_button_ranking),
+                contentDescription = "Ranking",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(60.dp)
+                    .padding(vertical = 8.dp)
+                    .clickable { onRanking() }
+            )
+
+            Image(
+                painter = painterResource(id = R.drawable.sprite_button_exit),
+                contentDescription = "Salir",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(60.dp)
+                    .padding(vertical = 8.dp)
+                    .clickable { onExit() }
+            )
+        }
     }
 }
-
-// --- PANTALLA DE ENTRADA DE NOMBRE ---
+// --- PANTALLA DE ENTRADA DE NOMBRE MODIFICADA ---
 @Composable
 fun NameEntryScreen(onNameSubmitted: (String) -> Unit, onBack: () -> Unit) {
     var name by rememberSaveable { mutableStateOf("") }
     val maxChars = 5
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding()
-            .padding(24.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(
-            text = "Introduce tu nombre (máx. $maxChars):",
-            style = MaterialTheme.typography.titleLarge,
-            modifier = Modifier.padding(bottom = 16.dp)
+        // Imagen de fondo
+        Image(
+            painter = painterResource(id = R.drawable.sprite_background),
+            contentDescription = "Fondo de entrada de nombre",
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
         )
-        TextField(
-            value = name,
-            onValueChange = { newValue ->
-                if (newValue.length <= maxChars) name = newValue
-            },
-            singleLine = true,
-            supportingText = { Text(text = "${name.length} / $maxChars") },
-            modifier = Modifier.fillMaxWidth()
+
+        // Overlay oscuro para mejor legibilidad
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.4f))
         )
-        Spacer(modifier = Modifier.height(16.dp))
-        Button(
-            onClick = { onNameSubmitted(name.trim()) },
-            enabled = name.isNotBlank(),
-            modifier = Modifier.fillMaxWidth()
-        ) { Text("COMENZAR") }
-        Spacer(modifier = Modifier.height(8.dp))
-        Button(onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text("VOLVER") }
+
+        // Contenido de entrada de nombre
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "Introduce tu nombre (máx. $maxChars):",
+                style = MaterialTheme.typography.titleLarge.copy(color = Color.White),
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+
+            TextField(
+                value = name,
+                onValueChange = { newValue ->
+                    if (newValue.length <= maxChars) name = newValue
+                },
+                singleLine = true,
+                supportingText = {
+                    Text(
+                        text = "${name.length} / $maxChars",
+                        color = Color.White
+                    )
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = TextFieldDefaults.colors(
+                    unfocusedTextColor = Color.White,
+                    focusedTextColor = Color.White,
+                    unfocusedContainerColor = Color.White.copy(alpha = 0.1f),
+                    focusedContainerColor = Color.White.copy(alpha = 0.2f),
+                    unfocusedIndicatorColor = Color.White.copy(alpha = 0.5f),
+                    focusedIndicatorColor = Color.White
+                )
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Botón Comenzar con sprite
+            Image(
+                painter = painterResource(id = R.drawable.sprite_button_submit),
+                contentDescription = "Comenzar",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+                    .clickable(enabled = name.isNotBlank()) { onNameSubmitted(name.trim()) }
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Botón Volver con sprite
+            Image(
+                painter = painterResource(id = R.drawable.sprite_button_back),
+                contentDescription = "Volver",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+                    .clickable { onBack() }
+            )
+        }
     }
 }
 
-// --- TRIVIA GAME ---
+// --- TRIVIA GAME MODIFICADO ---
 @Composable
 fun TriviaGame(
     questions: List<Question>,
@@ -447,7 +660,7 @@ fun TriviaGame(
     var currentIndex by rememberSaveable { mutableStateOf(0) }
     var correctAnswers by rememberSaveable { mutableStateOf(0) }
     var showFinalMessage by rememberSaveable { mutableStateOf(false) }
-    // Guarda automáticamente el resultado al terminar la partida
+
     LaunchedEffect(showFinalMessage) {
         if (showFinalMessage && correctAnswers > 0) {
             scope.launch(Dispatchers.IO) {
@@ -475,92 +688,154 @@ fun TriviaGame(
         } catch (_: Exception) { }
     }
 
-    Column(modifier = Modifier
-        .fillMaxSize()
-        .statusBarsPadding()) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Button(onClick = onQuitToMenu) { Text("Salir") }
-            Spacer(modifier = Modifier.width(12.dp))
-            Text(
-                text = "Jugador: $playerName",
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.weight(1f)
-            )
-            Text(text = "Volumen: ${(volume * 100).toInt()}%")
-        }
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+    ) {
+        // Imagen de fondo para toda la pantalla del juego
+        Image(
+            painter = painterResource(id = R.drawable.sprite_background),
+            contentDescription = "Fondo del juego",
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
+        )
 
-        if (questions.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Cargando preguntas…", style = MaterialTheme.typography.titleMedium)
-            }
-        } else if (showFinalMessage) {
-            Box(
+        // Overlay oscuro para mejor legibilidad
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.4f))
+        )
+
+        // Contenido del juego
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Barra superior con información del jugador
+            Row(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color(0xFF1B5E20)),
-                contentAlignment = Alignment.Center
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = "¡Has terminado el trivia, $playerName!",
-                        color = Color.White,
-                        fontSize = 26.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = "Aciertos: $correctAnswers/${questions.size}",
-                        color = Color.White,
-                        fontSize = 20.sp
-                    )
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    // 🔹 Aquí guardamos la puntuación correcta ANTES de reiniciar
-                    Button(onClick = {
-                        val finalScore = correctAnswers
-                        scope.launch {
-                            db.scoreDao().insert(
-                                ScoreEntity(
-                                    playerName = playerName,
-                                    score = finalScore,   // se guarda el valor antes del reset
-                                    dateMillis = Date().time
-                                )
-                            )
-                        }
-                        // ahora sí, reiniciamos los valores del juego
-                        currentIndex = 0
-                        correctAnswers = 0
-                        showFinalMessage = false
-                    }) { Text("JUGAR DE NUEVO") }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Button(onClick = onLeaderboard) { Text("VER RANKING") }
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Button(onClick = onQuitToMenu) { Text("VOLVER AL MENÚ") }
-                }
-            }
-        } else {
-            Box(modifier = Modifier.weight(1f)) {
-                QuestionScreen(
-                    question = questions[currentIndex],
-                    questionIndex = currentIndex,
-                    totalQuestions = questions.size,
-                    onAnswerFeedback = { correct -> if (correct) correctAnswers++ },
-                    onNextQuestion = {
-                        if (currentIndex < questions.lastIndex) currentIndex++ else showFinalMessage = true
-                    },
-                    playSound = { correct -> playSound(correct) }
+                Image(
+                    painter = painterResource(id = R.drawable.sprite_button_exit),
+                    contentDescription = "Salir",
+                    modifier = Modifier
+                        .size(80.dp, 36.dp)
+                        .clickable { onQuitToMenu() }
                 )
+
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = "Jugador: $playerName",
+                    style = MaterialTheme.typography.bodyLarge.copy(color = Color.White),
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    text = "Volumen: ${(volume * 100).toInt()}%",
+                    style = MaterialTheme.typography.bodyLarge.copy(color = Color.White)
+                )
+            }
+
+            if (questions.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "Cargando preguntas…",
+                        style = MaterialTheme.typography.titleMedium.copy(color = Color.White)
+                    )
+                }
+            } else if (showFinalMessage) {
+                // Pantalla final con la misma imagen de fondo
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "¡Has terminado el trivia, $playerName!",
+                            color = Color.White,
+                            fontSize = 26.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "Aciertos: $correctAnswers/${questions.size}",
+                            color = Color.White,
+                            fontSize = 20.sp
+                        )
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        Image(
+                            painter = painterResource(id = R.drawable.sprite_button_play),
+                            contentDescription = "Jugar de nuevo",
+                            modifier = Modifier
+                                .fillMaxWidth(0.6f)
+                                .height(48.dp)
+                                .clickable {
+                                    val finalScore = correctAnswers
+                                    scope.launch {
+                                        db.scoreDao().insert(
+                                            ScoreEntity(
+                                                playerName = playerName,
+                                                score = finalScore,
+                                                dateMillis = Date().time
+                                            )
+                                        )
+                                    }
+                                    currentIndex = 0
+                                    correctAnswers = 0
+                                    showFinalMessage = false
+                                }
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Image(
+                            painter = painterResource(id = R.drawable.sprite_button_ranking),
+                            contentDescription = "Ver ranking",
+                            modifier = Modifier
+                                .fillMaxWidth(0.6f)
+                                .height(48.dp)
+                                .clickable { onLeaderboard() }
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Image(
+                            painter = painterResource(id = R.drawable.sprite_button_exit),
+                            contentDescription = "Volver al menú",
+                            modifier = Modifier
+                                .fillMaxWidth(0.6f)
+                                .height(48.dp)
+                                .clickable { onQuitToMenu() }
+                        )
+                    }
+                }
+            } else {
+                // Área de preguntas con fondo transparente para que se vea la imagen
+                Box(modifier = Modifier.weight(1f)) {
+                    QuestionScreen(
+                        question = questions[currentIndex],
+                        questionIndex = currentIndex,
+                        totalQuestions = questions.size,
+                        onAnswerFeedback = { correct -> if (correct) correctAnswers++ },
+                        onNextQuestion = {
+                            if (currentIndex < questions.lastIndex) currentIndex++ else showFinalMessage = true
+                        },
+                        playSound = { correct -> playSound(correct) }
+                    )
+                }
             }
         }
     }
 }
 
-
-// --- RANKING SCREEN ---
+// --- RANKING SCREEN MODIFICADA ---
 @Composable
 fun RankingScreen(onBack: () -> Unit) {
     val context = LocalContext.current
@@ -575,36 +850,80 @@ fun RankingScreen(onBack: () -> Unit) {
         }
     }
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .statusBarsPadding()
-            .padding(16.dp)
     ) {
-        Text(
-            text = "Ranking (Top 10)",
-            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold)
+        // Imagen de fondo
+        Image(
+            painter = painterResource(id = R.drawable.sprite_background),
+            contentDescription = "Fondo del ranking",
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
+        // Overlay oscuro para mejor legibilidad
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.4f))
+        )
 
-        if (scores.isEmpty()) {
-            Text("No hay puntuaciones aún.")
-        } else {
-            scores.forEachIndexed { idx, s ->
-                Text(
-                    text = "${idx + 1}. ${s.playerName} — ${s.score}",
-                    style = MaterialTheme.typography.bodyLarge
-                )
+        // Contenido del ranking - CENTRADO
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.Center, // ← Centrado vertical
+            horizontalAlignment = Alignment.CenterHorizontally // ← Centrado horizontal
+        ) {
+            Text(
+                text = "Ranking (Top 10)",
+                style = MaterialTheme.typography.headlineSmall.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                ),
+                modifier = Modifier.padding(bottom = 24.dp) // Más espacio abajo
+            )
+
+            // Contenedor para las puntuaciones con scroll por si hay muchas
+            Column(
+                modifier = Modifier
+                    .weight(1f, false) // No ocupa todo el espacio disponible
+                    .padding(horizontal = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                if (scores.isEmpty()) {
+                    Text(
+                        "No hay puntuaciones aún.",
+                        style = MaterialTheme.typography.bodyLarge.copy(color = Color.White),
+                        textAlign = TextAlign.Center // Texto centrado
+                    )
+                } else {
+                    scores.forEachIndexed { idx, s ->
+                        Text(
+                            text = "${idx + 1}. ${s.playerName} — ${s.score}",
+                            style = MaterialTheme.typography.bodyLarge.copy(
+                                color = Color.White,
+                                fontSize = 18.sp // Un poco más grande
+                            ),
+                            modifier = Modifier.padding(vertical = 8.dp) // Espacio entre items
+                        )
+                    }
+                }
             }
-        }
 
-        Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(32.dp)) // Más espacio antes del botón
 
-        Button(onClick = onBack) {
-            Text("VOLVER")
+            // Botón Volver con sprite
+            Image(
+                painter = painterResource(id = R.drawable.sprite_button_back),
+                contentDescription = "Volver",
+                modifier = Modifier
+                    .size(120.dp, 48.dp)
+                    .clickable { onBack() }
+            )
         }
     }
 }
-
-
