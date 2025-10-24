@@ -216,7 +216,7 @@ fun QuestionScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "✅ ¡Correcto!",
+                            text = "¡Correcto!",
                             color = Color(0xFF4CAF50),
                             fontWeight = FontWeight.Bold,
                             fontSize = 20.sp
@@ -246,20 +246,21 @@ fun QuestionScreen(
                             Text(
                                 text = question.explanation ?: "",
                                 modifier = Modifier.padding(12.dp),
-                                style = MaterialTheme.typography.bodyMedium
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontSize = 11.sp
                             )
                         }
                     }
                 }
             }
             isCorrect == false && !timeUp -> Text(
-                text = "❌ Incorrecto",
+                text = "Incorrecto",
                 color = Color(0xFFF44336),
                 fontWeight = FontWeight.Bold,
                 fontSize = 20.sp
             )
             timeUp -> Text(
-                text = "⏰ Se ha acabado el tiempo",
+                text = "Se ha acabado el tiempo",
                 color = Color(0xFFF44336),
                 fontWeight = FontWeight.Bold,
                 fontSize = 20.sp
@@ -338,13 +339,44 @@ fun AppRoot() {
     val scope = rememberCoroutineScope()
 
     var screen by rememberSaveable { mutableStateOf(Screen.Splash) } // Comienza con Splash
-    var appVolume by rememberSaveable { mutableStateOf(0.8f) }
+    //var appVolume by rememberSaveable { mutableStateOf(0.8f) }
     var questions by remember { mutableStateOf<List<Question>>(emptyList()) }
     var playerName by rememberSaveable { mutableStateOf("") }
     var gameId by rememberSaveable { mutableStateOf(0) }
 
+    var musicVolume by rememberSaveable { mutableStateOf(0.8f) }
+    var sfxVolume by rememberSaveable { mutableStateOf(0.8f) }
+    var screenBrightness by rememberSaveable { mutableStateOf(0.5f) }
+
+    val backgroundMusicPlayer = remember {
+        val resId = context.resources.getIdentifier("background_music", "raw", context.packageName)
+        if (resId != 0) MediaPlayer.create(context, resId) else null
+    }
+
+    // El LaunchedEffect que carga el volumen debe actualizar los tres valores
     LaunchedEffect(Unit) {
-        try { appVolume = loadVolume(context) } catch (_: Exception) { appVolume = 0.8f }
+        try { /* Carga musicVolume */ } catch (_: Exception) { musicVolume = 0.8f }
+        try { /* Carga sfxVolume */ } catch (_: Exception) { sfxVolume = 0.8f }
+        try { /* Carga screenBrightness */ } catch (_: Exception) { screenBrightness = 0.5f }
+    }
+
+    // Efecto para gestionar el ciclo de vida del reproductor de música
+    DisposableEffect(backgroundMusicPlayer) {
+        backgroundMusicPlayer?.apply {
+            isLooping = true
+            setVolume(musicVolume, musicVolume)
+            start()
+        }
+
+        onDispose {
+            backgroundMusicPlayer?.stop()
+            backgroundMusicPlayer?.release()
+        }
+    }
+
+    // Efecto para actualizar el volumen si el usuario lo cambia en Opciones
+    LaunchedEffect(musicVolume) {
+        backgroundMusicPlayer?.setVolume(musicVolume, musicVolume)
     }
 
     LaunchedEffect(Unit) {
@@ -353,6 +385,13 @@ fun AppRoot() {
                 Question("Error cargando preguntas", answers = listOf(Answer("OK", android.R.drawable.ic_menu_info_details, true)))
             )
         }
+    }
+
+    LaunchedEffect(screenBrightness) {
+        val layoutParams = activity?.window?.attributes
+        // El rango de brillo de Android va de 0.0f a 1.0f
+        layoutParams?.screenBrightness = screenBrightness
+        activity?.window?.attributes = layoutParams
     }
 
     when (screen) {
@@ -366,10 +405,20 @@ fun AppRoot() {
             onRanking = { screen = Screen.Ranking }
         )
         Screen.Options -> OptionsScreen(
-            volume = appVolume,
-            onVolumeChange = { newV ->
-                appVolume = newV
-                scope.launch { saveVolume(context, newV) }
+            musicVolume = musicVolume,
+            sfxVolume = sfxVolume,
+            brightness = screenBrightness,
+            onMusicVolumeChange = { newV ->
+                musicVolume = newV
+                scope.launch { /* Guarda musicVolume */ }
+            },
+            onSfxVolumeChange = { newV ->
+                sfxVolume = newV
+                scope.launch { /* Guarda sfxVolume */ }
+            },
+            onBrightnessChange = { newV ->
+                screenBrightness = newV
+                scope.launch { /* Guarda screenBrightness */ }
             },
             onBack = { screen = Screen.MainMenu }
         )
@@ -385,7 +434,7 @@ fun AppRoot() {
             key(gameId) {
                 TriviaGame(
                     questions = questions,
-                    volume = appVolume,
+                    sfxVolume = sfxVolume,
                     playerName = playerName,
                     onQuitToMenu = { screen = Screen.MainMenu },
                     onLeaderboard = { screen = Screen.Ranking }
@@ -399,8 +448,12 @@ fun AppRoot() {
 // --- OPTIONS SCREEN MODIFICADA CON SPRITES ---
 @Composable
 fun OptionsScreen(
-    volume: Float,
-    onVolumeChange: (Float) -> Unit,
+    musicVolume: Float,
+    sfxVolume: Float,
+    brightness: Float,
+    onMusicVolumeChange: (Float) -> Unit,
+    onSfxVolumeChange: (Float) -> Unit,
+    onBrightnessChange: (Float) -> Unit,
     onBack: () -> Unit
 ) {
     Box(
@@ -440,17 +493,44 @@ fun OptionsScreen(
             )
 
             Text(
-                text = "Volumen: ${(volume * 100).toInt()}%",
+                text = "Música: ${(musicVolume * 100).toInt()}%",
                 style = MaterialTheme.typography.bodyLarge.copy(color = Color.White),
-                modifier = Modifier.padding(bottom = 8.dp)
+                modifier = Modifier.padding(bottom = 8.dp, top = 16.dp)
             )
-
             Slider(
-                value = volume,
-                onValueChange = onVolumeChange,
+                value = musicVolume,
+                onValueChange = onMusicVolumeChange,
                 valueRange = 0f..1f,
                 modifier = Modifier.fillMaxWidth()
             )
+
+// --- Control de Volumen de Efectos de Sonido (SFX) ---
+            Text(
+                text = "Efectos (SFX): ${(sfxVolume * 100).toInt()}%",
+                style = MaterialTheme.typography.bodyLarge.copy(color = Color.White),
+                modifier = Modifier.padding(bottom = 8.dp, top = 16.dp)
+            )
+            Slider(
+                value = sfxVolume,
+                onValueChange = onSfxVolumeChange,
+                valueRange = 0f..1f,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            // --- Control de Brillo ---
+            Text(
+                text = "Brillo: ${(brightness * 100).toInt()}%",
+                style = MaterialTheme.typography.bodyLarge.copy(color = Color.White),
+                modifier = Modifier.padding(bottom = 8.dp, top = 16.dp)
+            )
+            Slider(
+                value = brightness,
+                onValueChange = onBrightnessChange,
+                valueRange = 0.1f..1f, // Mínimo 0.1 para que la pantalla no se quede negra
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
 
             Spacer(modifier = Modifier.height(24.dp))
 
@@ -559,7 +639,7 @@ fun MainMenu(
 @Composable
 fun NameEntryScreen(onNameSubmitted: (String) -> Unit, onBack: () -> Unit) {
     var name by rememberSaveable { mutableStateOf("") }
-    val maxChars = 5
+    val maxChars = 10
 
     Box(
         modifier = Modifier
@@ -649,7 +729,7 @@ fun NameEntryScreen(onNameSubmitted: (String) -> Unit, onBack: () -> Unit) {
 @Composable
 fun TriviaGame(
     questions: List<Question>,
-    volume: Float,
+    sfxVolume: Float,
     playerName: String,
     onQuitToMenu: () -> Unit,
     onLeaderboard: () -> Unit
@@ -681,7 +761,7 @@ fun TriviaGame(
             else context.resources.getIdentifier("wrong", "raw", context.packageName)
             if (resId != 0) {
                 val mp = MediaPlayer.create(context, resId)
-                mp.setVolume(volume, volume)
+                mp.setVolume(sfxVolume, sfxVolume)
                 mp.start()
                 mp.setOnCompletionListener { m -> m.release() }
             }
@@ -714,6 +794,7 @@ fun TriviaGame(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .background(Color.Black.copy(alpha = 0.6f))
                     .padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -732,7 +813,7 @@ fun TriviaGame(
                     modifier = Modifier.weight(1f)
                 )
                 Text(
-                    text = "Volumen: ${(volume * 100).toInt()}%",
+                    text = "Volumen: ${(sfxVolume * 100).toInt()}%",
                     style = MaterialTheme.typography.bodyLarge.copy(color = Color.White)
                 )
             }

@@ -38,7 +38,7 @@ private val LightColorScheme = lightColorScheme(
 
 // Fuente personalizada
 val GamePocketFontFamily = FontFamily(
-    Font(R.font.game_pocket, FontWeight.Normal)
+    Font(R.font.jersey10, FontWeight.Normal)
 )
 
 // Tipografía personalizada - DEFINIDA DIRECTAMENTE sin depender de MaterialTheme
