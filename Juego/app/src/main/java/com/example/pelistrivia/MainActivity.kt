@@ -30,6 +30,10 @@ import com.example.pelistrivia.ui.theme.PelisTriviaTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
+import android.net.Uri
+import android.view.ViewGroup
+import android.widget.VideoView // <-- La clase que está dando error
+import androidx.compose.ui.viewinterop.AndroidView // <-- El envoltorio Composable
 import java.util.*
 
 // --- MODELOS DE DATOS ---
@@ -47,7 +51,8 @@ data class Question(
 
 // --- NUEVO ESTADO DE NAVEGACIÓN ---
 private enum class Screen {
-    Splash, // Nueva pantalla de inicio
+    VideoIntro,
+    Splash,
     MainMenu,
     Options,
     EnterName,
@@ -338,7 +343,7 @@ fun AppRoot() {
     val activity = context as? Activity
     val scope = rememberCoroutineScope()
 
-    var screen by rememberSaveable { mutableStateOf(Screen.Splash) } // Comienza con Splash
+    var screen by rememberSaveable { mutableStateOf(Screen.VideoIntro) }
     //var appVolume by rememberSaveable { mutableStateOf(0.8f) }
     var questions by remember { mutableStateOf<List<Question>>(emptyList()) }
     var playerName by rememberSaveable { mutableStateOf("") }
@@ -365,7 +370,6 @@ fun AppRoot() {
         backgroundMusicPlayer?.apply {
             isLooping = true
             setVolume(musicVolume, musicVolume)
-            start()
         }
 
         onDispose {
@@ -394,7 +398,17 @@ fun AppRoot() {
         activity?.window?.attributes = layoutParams
     }
 
+    val startMusic: () -> Unit = {
+        backgroundMusicPlayer?.start()
+    }
+
     when (screen) {
+        Screen.VideoIntro -> VideoIntroScreen(
+            onVideoFinished = {
+                screen = Screen.Splash
+                startMusic()
+            }
+        )
         Screen.Splash -> SplashScreen(
             onContinue = { screen = Screen.MainMenu }
         )
@@ -442,6 +456,57 @@ fun AppRoot() {
             }
         }
         Screen.Ranking -> RankingScreen(onBack = { screen = Screen.MainMenu })
+    }
+}
+
+// --- NUEVA PANTALLA DE INTRODUCCIÓN CON VIDEO ---
+@Composable
+fun VideoIntroScreen(onVideoFinished: () -> Unit) {
+    val context = LocalContext.current
+    val videoId = remember {
+        context.resources.getIdentifier("intro_video", "raw", context.packageName)
+    }
+
+    if (videoId == 0) {
+        LaunchedEffect(Unit) {
+            onVideoFinished()
+        }
+        return
+    }
+
+    // 1. Usa BoxWithConstraints para obtener las dimensiones exactas de la pantalla
+    BoxWithConstraints(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+        val widthPx = this.constraints.maxWidth // Ancho disponible en píxeles
+        val heightPx = this.constraints.maxHeight // Alto disponible en píxeles
+
+        AndroidView(
+            factory = {
+                VideoView(it).apply {
+                    val path = "android.resource://" + context.packageName + "/" + videoId
+                    setVideoURI(Uri.parse(path))
+
+                    setOnCompletionListener {
+                        onVideoFinished()
+                    }
+
+                    // 2. Establece las dimensiones exactas del contenedor View (layoutParams)
+                    layoutParams = ViewGroup.LayoutParams(
+                        widthPx,  // Usamos el ancho obtenido
+                        heightPx  //Usamos el alto obtenido
+                    )
+
+                    // 3. Agrega un listener para forzar el redimensionamiento del video
+                    setOnPreparedListener { mp ->
+                        //Forzamos el redimensionamiento del video para que ocupe
+                        //las dimensiones de la pantalla (widthPx, heightPx).
+                        mp.setVideoScalingMode(MediaPlayer.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING)
+                        mp.start()
+                    }
+                    requestFocus()
+                }
+            },
+            modifier = Modifier.fillMaxSize()
+        )
     }
 }
 
